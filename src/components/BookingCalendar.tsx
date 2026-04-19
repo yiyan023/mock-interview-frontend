@@ -211,7 +211,7 @@ export function BookingCalendar() {
         timezone: tz,
         form: intakeForm,
       })
-      setScheduleEmailInfo('Email sent — check your inbox.')
+      setScheduleEmailInfo('Confirmation email sent and calendar invite created — check your inbox.')
     } catch (err: unknown) {
       setScheduleEmailInfo(
         err instanceof Error ? err.message : 'Could not send email. Try again.',
