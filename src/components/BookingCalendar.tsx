@@ -18,6 +18,7 @@ import { fetchAvailableTimesForDate } from '../lib/fetchTimes'
 import './BookingCalendar.css'
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+type AutoScheduleState = 'idle' | 'scheduling' | 'success'
 
 function createDate(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate())
@@ -117,7 +118,9 @@ export function BookingCalendar() {
   )
   const [scheduleEmailInfo, setScheduleEmailInfo] = useState<string | null>(null)
   const [scheduleEmailBusy, setScheduleEmailBusy] = useState(false)
+  const [autoScheduleState, setAutoScheduleState] = useState<AutoScheduleState>('idle')
   const autoScheduleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const today = new Date()
   const todayDate = createDate(today)
@@ -195,6 +198,9 @@ export function BookingCalendar() {
       if (autoScheduleTimerRef.current) {
         clearTimeout(autoScheduleTimerRef.current)
       }
+      if (autoCloseTimerRef.current) {
+        clearTimeout(autoCloseTimerRef.current)
+      }
     }
   }, [])
 
@@ -202,10 +208,13 @@ export function BookingCalendar() {
     if (!selectedTimeSlot || scheduleEmailBusy) return
     const email = intakeForm.email.trim()
     if (!email) {
+      setAutoScheduleState('idle')
       setScheduleEmailInfo('Use “Back to details” and enter your email, then return here.')
       return
     }
 
+    setScheduleEmailInfo(null)
+    setAutoScheduleState('scheduling')
     setScheduleEmailBusy(true)
     try {
       await sendBookingSummaryEmail({
@@ -213,15 +222,23 @@ export function BookingCalendar() {
         timezone: tz,
         form: intakeForm,
       })
-      setScheduleEmailInfo('Confirmation email sent and calendar invite created — check your inbox.')
+      setAutoScheduleState('success')
+      setScheduleSuccessMessage('Confirmation email sent and calendar invite created — check your inbox.')
+      if (autoCloseTimerRef.current) {
+        clearTimeout(autoCloseTimerRef.current)
+      }
+      autoCloseTimerRef.current = window.setTimeout(() => {
+        closeIntakeForm()
+      }, 2000)
     } catch (err: unknown) {
+      setAutoScheduleState('idle')
       setScheduleEmailInfo(
         err instanceof Error ? err.message : 'Could not send email. Try again.',
       )
     } finally {
       setScheduleEmailBusy(false)
     }
-  }, [intakeForm, scheduleEmailBusy, selectedTimeSlot, tz])
+  }, [closeIntakeForm, intakeForm, scheduleEmailBusy, selectedTimeSlot, tz])
 
   const onEmbeddedCheckoutComplete = useCallback(() => {
     void (async () => {
@@ -234,7 +251,7 @@ export function BookingCalendar() {
         const s = await fetchStripeSessionStatus(sid)
         if (s.paymentStatus === 'paid') {
           setCheckoutError(null)
-          setScheduleEmailInfo('Payment confirmed. Scheduling your booking...')
+          setAutoScheduleState('scheduling')
           if (autoScheduleTimerRef.current) {
             clearTimeout(autoScheduleTimerRef.current)
           }
@@ -242,11 +259,13 @@ export function BookingCalendar() {
             void runScheduleBooking()
           }, 3000)
         } else {
+          setAutoScheduleState('idle')
           setCheckoutError(
             'Payment is not marked as paid yet. Wait a moment and try the Schedule button again, or refresh.',
           )
         }
       } catch (err: unknown) {
+        setAutoScheduleState('idle')
         setCheckoutError(
           err instanceof Error ? err.message : 'Could not verify payment.',
         )
@@ -270,11 +289,16 @@ export function BookingCalendar() {
       clearTimeout(autoScheduleTimerRef.current)
       autoScheduleTimerRef.current = null
     }
+    if (autoCloseTimerRef.current) {
+      clearTimeout(autoCloseTimerRef.current)
+      autoCloseTimerRef.current = null
+    }
     setSelectedTimeSlot(slot)
     setIsIntakeFormOpen(true)
     setScheduleSuccessMessage(null)
     setEmbeddedClientSecret(null)
     setCheckoutSessionId(null)
+    setAutoScheduleState('idle')
     setScheduleEmailInfo(null)
   }
 
@@ -283,12 +307,17 @@ export function BookingCalendar() {
       clearTimeout(autoScheduleTimerRef.current)
       autoScheduleTimerRef.current = null
     }
+    if (autoCloseTimerRef.current) {
+      clearTimeout(autoCloseTimerRef.current)
+      autoCloseTimerRef.current = null
+    }
     setIsIntakeFormOpen(false)
     setSelectedTimeSlot(null)
     setCheckoutError(null)
     setIsCheckoutLoading(false)
     setEmbeddedClientSecret(null)
     setCheckoutSessionId(null)
+    setAutoScheduleState('idle')
     setScheduleEmailInfo(null)
   }
 
@@ -476,7 +505,7 @@ export function BookingCalendar() {
           )}
         </div>
       )}
-      {isIntakeFormOpen && selectedTimeSlot && (
+      {isIntakeFormOpen && selectedTimeSlot && autoScheduleState === 'idle' && (
         <div className="booking-calendar__modal-overlay" role="presentation">
           <div
             className="booking-calendar__modal"
@@ -675,6 +704,23 @@ export function BookingCalendar() {
                 </button>
               </div>
             </form>
+            )}
+          </div>
+        </div>
+      )}
+      {isIntakeFormOpen && autoScheduleState !== 'idle' && (
+        <div className="booking-calendar__status-overlay" role="presentation">
+          <div className="booking-calendar__status-modal" role="status" aria-live="polite">
+            {autoScheduleState === 'scheduling' ? (
+              <>
+                <span className="booking-calendar__schedule-spinner" aria-hidden="true" />
+                <p className="booking-calendar__status-text">Sending email confirmations and calendar invites...</p>
+              </>
+            ) : (
+              <>
+                <span className="booking-calendar__schedule-check" aria-hidden="true">✓</span>
+                <p className="booking-calendar__status-text">Sent successfully.</p>
+              </>
             )}
           </div>
         </div>

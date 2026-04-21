@@ -359,3 +359,64 @@
 .booking-calendar__form-actions--embedded .booking-calendar__slot-btn {
   flex: 1 1 min(160px, 100%);
 }
+
+.booking-calendar__status-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.55);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.booking-calendar__status-modal {
+  width: min(360px, 100%);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg);
+  box-shadow: var(--shadow);
+  padding: 28px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.booking-calendar__status-text {
+  margin: 0;
+  color: var(--text-h);
+  font-size: 1rem;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.booking-calendar__schedule-spinner {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  border: 5px solid color-mix(in srgb, var(--border) 78%, var(--bg));
+  border-top-color: var(--accent);
+  animation: booking-calendar-spin 0.8s linear infinite;
+}
+
+.booking-calendar__schedule-check {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--accent) 28%, var(--bg));
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+@keyframes booking-calendar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
