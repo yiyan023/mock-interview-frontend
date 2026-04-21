@@ -12,26 +12,64 @@ const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? ''
 
 export const stripePromise = loadStripe(publishableKey)
 
+export type EmbeddedCheckoutSessionResult = {
+  clientSecret: string
+  sessionId: string
+}
+
+export type StripeSessionStatus = {
+  sessionId: string
+  paymentStatus: string
+  status: string
+}
+
 export async function createEmbeddedCheckoutSession(
   payload: CreateCheckoutPayload,
-): Promise<string> {
+): Promise<EmbeddedCheckoutSessionResult> {
   const res = await fetch(`${apiBase}/api/stripe/create-checkout-session`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
 
-  if (!res.ok) {
-    throw new Error('Unable to create Stripe checkout session.')
+  const data = (await res.json().catch(() => ({}))) as {
+    clientSecret?: string
+    sessionId?: string
+    error?: string
   }
 
-  const data = (await res.json()) as { clientSecret?: string; error?: string }
+  if (!res.ok) {
+    throw new Error(
+      data.error ||
+        `Unable to create Stripe checkout session (${res.status} ${res.statusText}).`,
+    )
+  }
   if (data.error) {
     throw new Error(data.error)
   }
   if (!data.clientSecret) {
     throw new Error('Stripe client secret missing.')
   }
+  if (!data.sessionId) {
+    throw new Error('Stripe session id missing from server response.')
+  }
 
-  return data.clientSecret
+  return { clientSecret: data.clientSecret, sessionId: data.sessionId }
+}
+
+export async function fetchStripeSessionStatus(
+  sessionId: string,
+): Promise<StripeSessionStatus> {
+  const id = new URLSearchParams({ session_id: sessionId })
+  const res = await fetch(`${apiBase}/api/stripe/session-status?${id}`)
+
+  const data = (await res.json().catch(() => ({}))) as StripeSessionStatus & {
+    error?: string
+  }
+
+  if (!res.ok) {
+    throw new Error(data.error || 'Could not verify payment status.')
+  }
+
+  return data
 }

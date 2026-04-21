@@ -10,6 +10,7 @@ import {
 import { fetchSlotsForCurrentMonth } from '../lib/fetchSlots'
 import {
   createEmbeddedCheckoutSession,
+  fetchStripeSessionStatus,
   stripePromise,
 } from '../lib/stripeCheckout'
 import { sendBookingSummaryEmail } from '../lib/sendBookingEmail'
@@ -110,6 +111,8 @@ export function BookingCalendar() {
   const [isCheckoutLoading, setIsCheckoutLoading] = useState(false)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const [embeddedClientSecret, setEmbeddedClientSecret] = useState<string | null>(null)
+  const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(null)
+  const [isPaid, setIsPaid] = useState(false)
   const [scheduleSuccessMessage, setScheduleSuccessMessage] = useState<string | null>(
     null,
   )
@@ -188,16 +191,36 @@ export function BookingCalendar() {
   }, [])
 
   const onEmbeddedCheckoutComplete = useCallback(() => {
-    setEmbeddedClientSecret(null)
-    setScheduleSuccessMessage('Your payment went through. Thanks!')
-    setIsIntakeFormOpen(false)
-    setSelectedTimeSlot(null)
-    setCheckoutError(null)
-    setIsCheckoutLoading(false)
-  }, [])
+    void (async () => {
+      const sid = checkoutSessionId
+      if (!sid) {
+        setCheckoutError('Could not verify payment (missing session). Try closing and opening checkout again.')
+        setIsPaid(false)
+        return
+      }
+      try {
+        const s = await fetchStripeSessionStatus(sid)
+        if (s.paymentStatus === 'paid') {
+          setIsPaid(true)
+          setCheckoutError(null)
+        } else {
+          setIsPaid(false)
+          setCheckoutError(
+            'Payment is not marked as paid yet. Wait a moment and try the Schedule button again, or refresh.',
+          )
+        }
+      } catch (err: unknown) {
+        setIsPaid(false)
+        setCheckoutError(
+          err instanceof Error ? err.message : 'Could not verify payment.',
+        )
+      }
+    })()
+  }, [checkoutSessionId])
 
   async function onScheduleEmailClick() {
     if (!selectedTimeSlot) return
+    if (embeddedClientSecret && !isPaid) return
     setScheduleEmailInfo(null)
     const email = intakeForm.email.trim()
     if (!email) {
@@ -237,6 +260,8 @@ export function BookingCalendar() {
     setIsIntakeFormOpen(true)
     setScheduleSuccessMessage(null)
     setEmbeddedClientSecret(null)
+    setCheckoutSessionId(null)
+    setIsPaid(false)
     setScheduleEmailInfo(null)
   }
 
@@ -246,6 +271,8 @@ export function BookingCalendar() {
     setCheckoutError(null)
     setIsCheckoutLoading(false)
     setEmbeddedClientSecret(null)
+    setCheckoutSessionId(null)
+    setIsPaid(false)
     setScheduleEmailInfo(null)
   }
 
@@ -264,11 +291,13 @@ export function BookingCalendar() {
     setIsCheckoutLoading(true)
 
     try {
-      const clientSecret = await createEmbeddedCheckoutSession({
+      const { clientSecret, sessionId } = await createEmbeddedCheckoutSession({
         selectedTimeIso: selectedTimeSlot.toISOString(),
         timezone: tz,
         form: intakeForm,
       })
+      setCheckoutSessionId(sessionId)
+      setIsPaid(false)
       setEmbeddedClientSecret(clientSecret)
       setIsCheckoutLoading(false)
     } catch (err: unknown) {
@@ -475,12 +504,24 @@ export function BookingCalendar() {
                     <EmbeddedCheckout />
                   </EmbeddedCheckoutProvider>
                 </div>
+                {!isPaid && (
+                  <p className="booking-calendar__hint" role="note">
+                    Complete payment above to enable Schedule (test card 4242 4242 4242 4242).
+                  </p>
+                )}
+                {isPaid && (
+                  <p className="booking-calendar__hint" role="status">
+                    Payment confirmed — you can send your calendar invite.
+                  </p>
+                )}
                 <div className="booking-calendar__form-actions booking-calendar__form-actions--embedded">
                   <button
                     type="button"
                     className="booking-calendar__slot-btn"
                     onClick={() => {
                       setEmbeddedClientSecret(null)
+                      setCheckoutSessionId(null)
+                      setIsPaid(false)
                       setScheduleEmailInfo(null)
                     }}
                   >
@@ -490,7 +531,12 @@ export function BookingCalendar() {
                     type="button"
                     className="booking-calendar__slot-btn"
                     onClick={onScheduleEmailClick}
-                    disabled={scheduleEmailBusy}
+                    disabled={scheduleEmailBusy || !isPaid}
+                    title={
+                      !isPaid && !scheduleEmailBusy
+                        ? 'Complete payment first; the button enables when status is paid.'
+                        : undefined
+                    }
                   >
                     {scheduleEmailBusy ? 'Sending…' : 'Schedule'}
                   </button>

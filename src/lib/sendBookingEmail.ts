@@ -6,7 +6,7 @@ type BookingEmailPayload = {
   form: IntakeFormState
 }
 
-const apiBase = String(import.meta.env.VITE_API_URL).replace(/\/$/, '')
+const apiBase = String(import.meta.env.VITE_API_URL_DEV).replace(/\/$/, '')
 
 async function postBookingEndpoint(
   path: string,

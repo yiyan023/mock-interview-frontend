@@ -217,9 +217,17 @@
     border-color 0.12s;
 }
 
-.booking-calendar__slot-btn:hover {
+.booking-calendar__slot-btn:hover:not(:disabled) {
   background: var(--accent-bg);
   border-color: var(--accent-border);
+}
+
+.booking-calendar__slot-btn:disabled {
+  color: color-mix(in srgb, var(--text) 72%, var(--border));
+  border-color: color-mix(in srgb, var(--border) 88%, var(--bg));
+  background: color-mix(in srgb, var(--bg) 94%, var(--border));
+  cursor: not-allowed;
+  opacity: 0.82;
 }
 
 .booking-calendar__slot-btn:focus-visible {
