@@ -9,12 +9,15 @@ import {
 } from '../lib/fetchForm'
 import { fetchSlotsForCurrentMonth } from '../lib/fetchSlots'
 import {
+  fetchAvailableTimesForDate,
+  bookTimeSlot,
+} from '../lib/fetchTimes'
+import {
   createEmbeddedCheckoutSession,
   fetchStripeSessionStatus,
   stripePromise,
 } from '../lib/stripeCheckout'
 import { sendBookingSummaryEmail } from '../lib/sendBookingEmail'
-import { fetchAvailableTimesForDate } from '../lib/fetchTimes'
 import './BookingCalendar.css'
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
@@ -221,6 +224,19 @@ export function BookingCalendar() {
         selectedTimeIso: selectedTimeSlot.toISOString(),
         timezone: tz,
         form: intakeForm,
+      })
+      await bookTimeSlot(selectedTimeSlot)
+      const remainingTimes = await fetchAvailableTimesForDate(selectedTimeSlot)
+      setAvailableSlots(remainingTimes)
+      const bookedDayKey = dateKey(selectedTimeSlot)
+      setAvailableDayKeys((prev) => {
+        const next = new Set(prev)
+        if (remainingTimes.length === 0) {
+          next.delete(bookedDayKey)
+        } else {
+          next.add(bookedDayKey)
+        }
+        return next
       })
       setAutoScheduleState('success')
       setScheduleSuccessMessage('Confirmation email sent and calendar invite created — check your inbox.')

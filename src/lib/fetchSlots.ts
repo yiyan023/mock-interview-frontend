@@ -37,6 +37,7 @@ export async function fetchSlotsForCurrentMonth(date: Date): Promise<Set<string>
     .select('*')
     .eq('year', year)
     .eq('month', month)
+    .neq('times_counter', 0)
 
   if (error) throw error
 

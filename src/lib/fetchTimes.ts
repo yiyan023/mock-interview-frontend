@@ -8,7 +8,6 @@ function isString(value: unknown): value is string {
   return typeof value === 'string'
 }
 
-/** Local calendar day as `YYYY-MM-DD` for Postgres `date` filters. */
 export function toPostgresDateKey(d: Date): string {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
@@ -16,12 +15,13 @@ export function toPostgresDateKey(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
-/**
- * Build an absolute `Date` from row `date` + `time`.
- * Supports:
- * - `time` as full ISO / timestamptz string (e.g. `2026-03-27T15:00:00.000Z`)
- * - `time` as time-of-day with zone: `15:00:00`, `15:00:00Z`, `15:00:00+00`, `15:00:00+00:00` (combined with `date`)
- */
+export function toPostgresTimeKey(d: Date): string {
+  const hours = String(d.getUTCHours()).padStart(2, '0')
+  const minutes = String(d.getUTCMinutes()).padStart(2, '0')
+  const seconds = String(d.getUTCSeconds()).padStart(2, '0')
+  return `${hours}:${minutes}:${seconds}`
+}
+
 function rowDateTimeToInstant(dateStr: string, timeVal: unknown): Date | null {
   if (!isString(timeVal)) return null
   const time = timeVal.trim()
@@ -46,11 +46,6 @@ function rowDateTimeToInstant(dateStr: string, timeVal: unknown): Date | null {
   return Number.isNaN(d.getTime()) ? null : d
 }
 
-/**
- * Load all time rows for the given **local calendar day**, sorted earliest-first.
- * Each value is a single instant (`Date`); format in the viewer’s zone with `Intl`, e.g.:
- * `new Intl.DateTimeFormat(undefined, { timeZone, hour: 'numeric', minute: '2-digit' }).format(d)`
- */
 export async function fetchAvailableTimesForDate(selectedDate: Date): Promise<Date[]> {
   const dateKey = toPostgresDateKey(createDateOnly(selectedDate))
 
@@ -58,6 +53,7 @@ export async function fetchAvailableTimesForDate(selectedDate: Date): Promise<Da
     .from(TIMES_TABLE)
     .select('id, date, time')
     .eq('date', dateKey)
+    .eq('is_booked', false)
 
   if (error) throw error
 
@@ -74,11 +70,33 @@ export async function fetchAvailableTimesForDate(selectedDate: Date): Promise<Da
   return instants
 }
 
+export async function bookTimeSlot(selectedTime: Date): Promise<void> {
+  const dateKey = toPostgresDateKey(createDateOnly(selectedTime))
+  const timeKey = toPostgresTimeKey(selectedTime)
+
+  console.log('dateKey', dateKey)
+  console.log('timeKey', timeKey)
+
+  const { data: slotsRemaining, error } = await supabase.rpc('book_timeslot', {
+    target_date: dateKey,
+    target_time: timeKey,
+  })
+
+  if (error) {
+    throw new Error(`Booking failed: ${error.message}`)
+  }
+
+  if (slotsRemaining === null) {
+    throw new Error('This timeslot is no longer available.')
+  }
+
+  console.log(`Booking confirmed. Slots remaining on ${dateKey}:`, slotsRemaining)
+}
+
 function createDateOnly(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate())
 }
 
-/** Format an instant in a specific IANA zone (defaults to the browser’s current zone). */
 export function formatInstantInTimeZone(
   instant: Date,
   timeZone: string = Intl.DateTimeFormat().resolvedOptions().timeZone,
