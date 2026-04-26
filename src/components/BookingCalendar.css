@@ -14,8 +14,8 @@
   margin: 0;
   padding: 12px 14px;
   border-radius: 10px;
-  border: 1px solid var(--accent-border);
-  background: var(--modal-bg);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 92%, var(--code-bg));
   color: var(--text-h);
   font-size: 0.95rem;
   line-height: 1.45;
@@ -408,6 +408,7 @@
 
 .booking-calendar__hint--selected-time {
   color: #cbd5e1;
+  margin-bottom: 10px;
 }
 
 .booking-calendar__schedule-spinner {
