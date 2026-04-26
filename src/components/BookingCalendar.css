@@ -15,7 +15,7 @@
   padding: 12px 14px;
   border-radius: 10px;
   border: 1px solid var(--accent-border);
-  background: var(--accent-bg);
+  background: var(--modal-bg);
   color: var(--text-h);
   font-size: 0.95rem;
   line-height: 1.45;
@@ -74,8 +74,14 @@
 }
 
 .booking-calendar__nav-btn:hover:not(:disabled) {
-  background: var(--accent-bg);
-  border-color: var(--accent-border);
+  background: color-mix(in srgb, var(--accent-bg) 50%, transparent);
+  border-color: #1f2f5c;
+  color: #1f2f5c;
+}
+
+.booking-calendar__nav-btn:active:not(:disabled) {
+  border-color: #1f2f5c;
+  color: #1f2f5c;
 }
 
 .booking-calendar__nav-btn:disabled {
@@ -132,7 +138,8 @@
 
 .booking-calendar__day:hover:not(:disabled) {
   border-color: var(--accent-border);
-  background: var(--accent-bg);
+  background: color-mix(in srgb, var(--accent-bg) 75%, transparent);
+  color: #1f2f5c;
 }
 
 .booking-calendar__day:focus-visible {
@@ -148,7 +155,7 @@
 .booking-calendar__day--selected {
   background: var(--accent-bg);
   border-color: var(--accent);
-  color: var(--accent);
+  color: #1f2f5c;
 }
 
 .booking-calendar__day--muted {
@@ -218,8 +225,14 @@
 }
 
 .booking-calendar__slot-btn:hover:not(:disabled) {
-  background: var(--accent-bg);
-  border-color: var(--accent-border);
+  background: color-mix(in srgb, var(--accent-bg) 75%, transparent);
+  border-color: #1f2f5c;
+  color: #1f2f5c;
+}
+
+.booking-calendar__slot-btn:active:not(:disabled) {
+  border-color: #1f2f5c;
+  color: #1f2f5c;
 }
 
 .booking-calendar__slot-btn:disabled {
@@ -252,7 +265,7 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 18px;
-  background: var(--bg);
+  background: var(--modal-bg);
   box-shadow: var(--shadow);
 }
 
@@ -271,7 +284,7 @@
 .booking-calendar__modal-close {
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--bg);
+  background: var(--modal-bg);
   color: var(--text-h);
   width: 2rem;
   height: 2rem;
@@ -374,7 +387,7 @@
   width: min(360px, 100%);
   border: 1px solid var(--border);
   border-radius: 14px;
-  background: var(--bg);
+  background: var(--modal-bg, var(--bg));
   box-shadow: var(--shadow);
   padding: 28px 22px;
   display: flex;
@@ -391,6 +404,10 @@
   font-size: 1rem;
   line-height: 1.4;
   font-weight: 500;
+}
+
+.booking-calendar__hint--selected-time {
+  color: #cbd5e1;
 }
 
 .booking-calendar__schedule-spinner {

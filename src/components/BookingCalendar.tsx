@@ -542,7 +542,7 @@ export function BookingCalendar() {
                 ×
               </button>
             </div>
-            <p className="booking-calendar__hint">
+            <p className="booking-calendar__hint booking-calendar__hint--selected-time">
               Selected time: <strong>{formatSlotTime(selectedTimeSlot, tz)}</strong> (
               {tzLabel || tz})
             </p>
