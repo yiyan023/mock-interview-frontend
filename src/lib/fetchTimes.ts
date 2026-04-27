@@ -22,7 +22,7 @@ export function toPostgresTimeKey(d: Date): string {
   return `${hours}:${minutes}:${seconds}`
 }
 
-function rowDateTimeToInstant(dateStr: string, timeVal: unknown): Date | null {
+export function rowDateTimeToInstant(dateStr: string, timeVal: unknown): Date | null {
   if (!isString(timeVal)) return null
   const time = timeVal.trim()
 
@@ -48,6 +48,7 @@ function rowDateTimeToInstant(dateStr: string, timeVal: unknown): Date | null {
 
 export async function fetchAvailableTimesForDate(selectedDate: Date): Promise<Date[]> {
   const dateKey = toPostgresDateKey(createDateOnly(selectedDate))
+  const now = Date.now()
 
   const { data, error } = await supabase
     .from(TIMES_TABLE)
@@ -63,11 +64,39 @@ export async function fetchAvailableTimesForDate(selectedDate: Date): Promise<Da
   for (const row of rows) {
     if (!isString(row.date)) continue
     const instant = rowDateTimeToInstant(row.date, row.time)
-    if (instant) instants.push(instant)
+    if (instant && instant.getTime() > now) instants.push(instant)
   }
 
   instants.sort((a, b) => a.getTime() - b.getTime())
   return instants
+}
+
+export async function fetchDayKeysWithFutureSlotsInMonth(
+  viewMonth: Date,
+): Promise<Set<string>> {
+  const year = viewMonth.getFullYear()
+  const month = viewMonth.getMonth()
+  const startKey = toPostgresDateKey(new Date(year, month, 1))
+  const endKey = toPostgresDateKey(new Date(year, month + 1, 0))
+  const now = Date.now()
+
+  const { data, error } = await supabase
+    .from(TIMES_TABLE)
+    .select('date, time')
+    .gte('date', startKey)
+    .lte('date', endKey)
+    .eq('is_booked', false)
+
+  if (error) throw error
+
+  const keys = new Set<string>()
+  for (const row of (data ?? []) as TimeRow[]) {
+    if (!isString(row.date)) continue
+    const instant = rowDateTimeToInstant(row.date, row.time)
+    if (instant && instant.getTime() > now) keys.add(row.date)
+  }
+
+  return keys
 }
 
 export async function bookTimeSlot(selectedTime: Date): Promise<void> {

@@ -57,7 +57,6 @@ function buildMonthCells(
   year: number,
   monthIndex: number,
   availableKeys: Set<string>,
-  todayStart: Date,
 ): Cell[] {
   const firstDate = new Date(year, monthIndex, 1)
   const emptyDays = firstDate.getDay()
@@ -70,7 +69,7 @@ function buildMonthCells(
     const date = new Date(year, monthIndex, d)
     const key = dateKey(date)
 
-    const available = availableKeys.has(key) && createDate(date) >= todayStart
+    const available = availableKeys.has(key)
     cells.push({ kind: 'day', date, dayNum: d, available })
   }
   return cells
@@ -131,14 +130,8 @@ export function BookingCalendar() {
   const viewMonthIndex = viewMonth.getMonth()
 
   const cells = useMemo(
-    () =>
-      buildMonthCells(
-        viewYear,
-        viewMonthIndex,
-        availableDayKeys,
-        todayDate,
-      ),
-    [viewYear, viewMonthIndex, availableDayKeys, todayDate.getTime()],
+    () => buildMonthCells(viewYear, viewMonthIndex, availableDayKeys),
+    [viewYear, viewMonthIndex, availableDayKeys],
   )
 
   const selectedDate = useMemo(() => {
@@ -172,8 +165,30 @@ export function BookingCalendar() {
         if (!cancelled) setSlotsLoading(false)
       })
 
+    const now = new Date()
+    const isViewingCurrentMonth =
+      viewMonth.getFullYear() === now.getFullYear() &&
+      viewMonth.getMonth() === now.getMonth()
+    const refreshId = isViewingCurrentMonth
+      ? window.setInterval(() => {
+          if (cancelled) return
+          void fetchSlotsForCurrentMonth(viewMonth)
+            .then((keys: Set<string>) => {
+              if (cancelled) return
+              setAvailableDayKeys(keys)
+            })
+            .catch((err: unknown) => {
+              if (cancelled) return
+              if (import.meta.env.DEV) {
+                console.error('[BookingCalendar] refresh availability failed', err)
+              }
+            })
+        }, 60_000)
+      : undefined
+
     const cleanup = () => {
       cancelled = true
+      if (refreshId !== undefined) window.clearInterval(refreshId)
       setSlotsLoading(false)
     }
     return cleanup
@@ -293,7 +308,8 @@ export function BookingCalendar() {
     if (!key) return []
     if (!availableDayKeys.has(key)) return []
 
-    const slotDate = new Date(key)
+    const [y, mo, d] = key.split('-').map(Number)
+    const slotDate = new Date(y, mo - 1, d)
     const slots = await fetchAvailableTimesForDate(slotDate)
 
     setShowSlots(true)

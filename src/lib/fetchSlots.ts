@@ -1,3 +1,4 @@
+import { fetchDayKeysWithFutureSlotsInMonth } from './fetchTimes'
 import { supabase } from './supabase'
 
 const DATES_TABLE = 'dates-table'
@@ -28,7 +29,7 @@ function rowToSlotDate(row: SlotRow): Date | null {
   return parsePostgresDateOnly(row.date)
 }
 
-export async function fetchSlotsForCurrentMonth(date: Date): Promise<Set<string>> {
+async function fetchDateKeysFromDatesTable(date: Date): Promise<Set<string>> {
   const year = date.getFullYear()
   const month = date.getMonth() + 1
 
@@ -46,6 +47,19 @@ export async function fetchSlotsForCurrentMonth(date: Date): Promise<Set<string>
   for (const row of rows) {
     const d = rowToSlotDate(row)
     if (d) keys.add(calendarDateKey(d))
+  }
+  return keys
+}
+
+export async function fetchSlotsForCurrentMonth(date: Date): Promise<Set<string>> {
+  const [calendarKeys, futureSlotKeys] = await Promise.all([
+    fetchDateKeysFromDatesTable(date),
+    fetchDayKeysWithFutureSlotsInMonth(date),
+  ])
+
+  const keys = new Set<string>()
+  for (const k of calendarKeys) {
+    if (futureSlotKeys.has(k)) keys.add(k)
   }
   return keys
 }
